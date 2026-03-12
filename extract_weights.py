@@ -1,34 +1,37 @@
 import torch
 import csv
-import numpy as np
+import math
 
-# -------- CONFIG --------
-pth_path = "./cps/net_premier.pth"   # change to your file
-output_csv = "model_weights.csv"
-# ------------------------
+pth_path = "./cps/net_premier.pth"
+output_csv = "model_weights_1024.csv"
 
-# Load state_dict (CPU-safe)
 state_dict = torch.load(pth_path, map_location="cpu")
 
-print(f"Loaded {len(state_dict)} layers")
-
 with open(output_csv, "w", newline="") as f:
-    writer = csv.writer(f)
+	writer = csv.writer(f)
+	writer.writerow(["layer", "input_index", "output_index", "weight"])
 
-    # Header
-    writer.writerow(["layer_name", "weight_index", "value"])
+	for name, tensor in state_dict.items():
 
-    # Iterate through layers
-    for layer_name, tensor in state_dict.items():
-        print(f"Processing: {layer_name}  shape={tuple(tensor.shape)}")
+		# Only process linear layer weights
+		if tensor.ndim == 2 and "weight" in name:
+			
+			out_features, in_features = tensor.shape
 
-        # Convert tensor → numpy → flatten
-        values = tensor.detach().cpu().numpy().flatten()
-        values = values * 16
-        values = np.round(values)
+			print("processing %s %dx%d" % (name, out_features, in_features))
 
-        # Write each weight
-        for idx, val in enumerate(values):
-            writer.writerow([layer_name, idx, float(val)])
+			for j in range(out_features):	  # output neuron
+				for i in range(in_features):   # input neuron
 
-print(f"\nWeights exported to: {output_csv}")
+					weight = tensor[j, i].item()
+					weight = weight * 1024
+					weight = round(weight)
+
+					writer.writerow([
+						name,
+						i,
+						j,
+						weight
+					])
+
+print("Export complete.")
